@@ -35,7 +35,7 @@ const analyzeStyle = async (messages, exName, extraContext = "") => {
 const replyAsEx = async (styleGuide, exName, conversation) => {
   const text = await callClaude({
     model: "claude-sonnet-4-20250514", max_tokens: 400,
-    system: `You are a texting style simulator. Respond ONLY as the character described below. No disclaimers, no meta commentary, just text back.\n\n${styleGuide}\n\n---\nOUTPUT FORMAT (mandatory):\n- Use ||| to separate every individual text bubble\n- Max 8 words per bubble\n- Send 2-5 bubbles per response\n- NEVER write a long paragraph as one chunk\n- CORRECT: "omg|||wait seriously|||thats insane|||u ok?"\n- WRONG: "omg wait seriously thats insane u ok?"\n- Your ENTIRE response must use ||| format, no exceptions`,
+    system: `You are a texting style simulator. Respond ONLY as the character described below. No disclaimers, no meta commentary, just text back.\n\n${styleGuide}\n\n---\nOUTPUT FORMAT (mandatory):\n- Use ||| to separate every individual text bubble\n- Max 8 words per bubble\n- Send 2-5 bubbles per response\n- NEVER write a long paragraph as one chunk\n- CORRECT: "omg|||wait seriously|||thats insane|||u ok?"\n- WRONG: "omg wait seriously thats insane u ok?"\n- Your ENTIRE response must use ||| format, no exceptions\n- Detect the language the character used in their messages and reply in that same language. If they texted in Vietnamese, reply in Vietnamese. If English, reply in English. Match their language exactly.`,
     messages: conversation,
   });
   return text.split("|||").map(m => m.trim()).filter(Boolean);
