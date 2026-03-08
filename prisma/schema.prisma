@@ -59,12 +59,22 @@ model VerificationToken {
 
 // App-specific: saved personas
 model Persona {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   userId       String
   name         String
   platform     String
-  styleGuide   String   // the AI-generated style + context profile
-  messageCount Int      @default(0)
-  createdAt    DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  styleGuide   String    // the AI-generated style + context profile
+  messageCount Int       @default(0)
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     Message[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  personaId String
+  role      String   // "user" or "assistant"
+  content   String
+  createdAt DateTime @default(now())
+  persona   Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
 }

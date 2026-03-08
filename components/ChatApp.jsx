@@ -23,6 +23,21 @@ const callClaude = async (body) => {
   return data.content?.[0]?.text || "";
 };
 
+const saveMessage = async (personaId, role, content) => {
+  if (!personaId) return;
+  await fetch("/api/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ personaId, role, content }),
+  });
+};
+
+const loadMessages = async (personaId) => {
+  const res = await fetch(`/api/messages?personaId=${personaId}`);
+  const data = await res.json();
+  return (data || []).map(m => ({ role: m.role, content: m.content }));
+};
+
 const analyzeStyle = async (messages, exName, extraContext = "") => {
   const fullConvo  = messages.slice(-300).map(m => `${m.sender}: ${m.text}`).join("\n");
   const theirMsgs  = messages.filter(m => m.sender === exName).slice(0, 150).map(m => m.text).join("\n");
@@ -66,12 +81,20 @@ export default function ChatApp({ initialPersona, onSavePersona, onBack }) {
   useEffect(() => {
     if (initialPersona && messages.length === 0) {
       setLoading(true);
-      replyAsEx(initialPersona.styleGuide, initialPersona.name, [
-        { role: "user", content: `Send your first text to start the conversation, exactly like ${initialPersona.name} would.` }
-      ]).then(opener => {
-        const openerParts = Array.isArray(opener) ? opener : [opener];
-        setMessages(openerParts.map(content => ({ role: "assistant", content })));
-        setLoading(false);
+      loadMessages(initialPersona.id).then(async (saved) => {
+        if (saved.length > 0) {
+          setMessages(saved);
+          setLoading(false);
+        } else {
+          const opener = await replyAsEx(initialPersona.styleGuide, initialPersona.name, [
+            { role: "user", content: `Send your first text to start the conversation, exactly like ${initialPersona.name} would.` }
+          ]);
+          const openerParts = Array.isArray(opener) ? opener : [opener];
+          const openerMsgs = openerParts.map(content => ({ role: "assistant", content }));
+          setMessages(openerMsgs);
+          for (const m of openerMsgs) await saveMessage(initialPersona.id, m.role, m.content);
+          setLoading(false);
+        }
       });
     }
   }, []);
@@ -112,7 +135,9 @@ export default function ChatApp({ initialPersona, onSavePersona, onBack }) {
         { role: "user", content: `Send your first text to start the conversation, exactly like ${exName} would.` }
       ]);
       const openerParts = Array.isArray(opener) ? opener : [opener];
-      setMessages(openerParts.map(content => ({ role: "assistant", content })));
+      const openerMsgs = openerParts.map(content => ({ role: "assistant", content }));
+      setMessages(openerMsgs);
+      for (const m of openerMsgs) await saveMessage(id, m.role, m.content);
       setStep("chat");
     } catch { setStep("context"); }
   };
@@ -128,14 +153,16 @@ export default function ChatApp({ initialPersona, onSavePersona, onBack }) {
     try {
       const parts = await replyAsEx(styleGuide, exName, next);
       // Drip messages one by one with typing delay
+      // Save user message
+      await saveMessage(personaId, "user", text);
       let current = [...next];
       for (let i = 0; i < parts.length; i++) {
         const msg = parts[i];
-        // typing delay based on message length — ~50ms per char, min 800ms, max 3000ms
         const typingDelay = Math.min(Math.max(msg.length * 150, 2000), 8000);
         await new Promise(r => setTimeout(r, typingDelay));
         current = [...current, { role: "assistant", content: msg }];
         setMessages([...current]);
+        await saveMessage(personaId, "assistant", msg);
       }
     } catch { setMessages([...next, { role: "assistant", content: "..." }]); }
     setLoading(false);
@@ -316,8 +343,8 @@ const s = {
   msgList: { flex:1, overflowY:"auto", padding:"20px 16px", display:"flex", flexDirection:"column", gap:10 },
   dateTag: { textAlign:"center", fontSize:9, color:"rgba(255,150,190,0.2)", letterSpacing:"0.08em", marginBottom:4 },
   avatarCircle: { width:28, height:28, borderRadius:"50%", background:"linear-gradient(135deg,#c2185b,#7b1fa2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:"#ffd6e7", alignSelf:"flex-end", marginRight:6, flexShrink:0 },
-  exBubble: { maxWidth:"72%", padding:"10px 14px", background:"rgba(255,80,140,0.1)", border:"1px solid rgba(255,100,160,0.15)", borderRadius:"4px 16px 16px 16px", fontSize:13, color:"#ffd6e7", lineHeight:1.55, fontWeight:300 },
-  meBubble: { maxWidth:"72%", padding:"10px 14px", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"16px 4px 16px 16px", fontSize:13, color:"rgba(255,210,230,0.7)", lineHeight:1.55, fontWeight:300 },
+  exBubble: { maxWidth:"72%", padding:"10px 14px", background:"rgba(255,80,140,0.1)", border:"1px solid rgba(255,100,160,0.15)", borderRadius:"4px 16px 16px 16px", fontSize:13, color:"#ffd6e7", lineHeight:1.55, fontWeight:300, fontFamily:"'Segoe UI', system-ui, -apple-system, sans-serif", unicodeBidi:"plaintext" },
+  meBubble: { maxWidth:"72%", padding:"10px 14px", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"16px 4px 16px 16px", fontSize:13, color:"rgba(255,210,230,0.7)", lineHeight:1.55, fontWeight:300, fontFamily:"'Segoe UI', system-ui, -apple-system, sans-serif", unicodeBidi:"plaintext" },
   inputRow: { padding:"12px 16px", display:"flex", gap:10, alignItems:"flex-end", borderTop:"1px solid rgba(255,100,160,0.08)" },
   msgInput: { flex:1, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,100,160,0.15)", borderRadius:14, padding:"10px 14px", color:"#ffd6e7", fontSize:13, fontWeight:300, resize:"none", lineHeight:1.5, maxHeight:90, overflowY:"auto" },
   sendBtn: { width:38, height:38, borderRadius:"50%", background:"linear-gradient(135deg,#c2185b,#880e4f)", border:"none", color:"#ffd6e7", fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"opacity .2s", boxShadow:"0 4px 12px rgba(180,40,100,0.3)" },
