@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Still
 
 Upload your old chats. Talk to them again.
@@ -103,3 +104,6 @@ Open [http://localhost:3000](http://localhost:3000)
 - **PostgreSQL** — Database
 - **Anthropic Claude** — AI backend
 - **bcryptjs** — Password hashing
+=======
+# still-app
+>>>>>>> afb34a233c9cd909fc85bef31a9e1c874efdf1d0
